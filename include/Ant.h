@@ -15,6 +15,14 @@ extern "C" {
 JNIEXPORT jobject JNICALL Java_Ant_conn
   (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jstring);
 
+/*
+ * Class:     Ant
+ * Method:    query
+ * Signature: (Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_Ant_query
+  (JNIEnv *, jobject, jstring);
+
 #ifdef __cplusplus
 }
 #endif
