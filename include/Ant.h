@@ -9,11 +9,11 @@ extern "C" {
 #endif
 /*
  * Class:     Ant
- * Method:    hello
- * Signature: ()V
+ * Method:    conn
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)LAnt;
  */
-JNIEXPORT void JNICALL Java_Ant_hello
-  (JNIEnv *, jobject);
+JNIEXPORT jobject JNICALL Java_Ant_conn
+  (JNIEnv *, jobject, jstring, jstring, jstring, jstring, jstring);
 
 #ifdef __cplusplus
 }

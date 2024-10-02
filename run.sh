@@ -2,6 +2,7 @@
 clear
 javac -d ./include/ src/Ant.java 
 javah -d ./include/ -classpath ./include/ Ant
-gcc -shared -o libant.so -I"${JAVING}/include" -I"${JAVING}/include/linux" ./lib/lib.c
+gcc -shared -fPIC -o libant.so -I./include -I"${JAVING}/include" -I"${JAVING}/include/linux" -I/usr/include/postgresql -L/usr/lib/x86_64-linux-gnu -lpq ./lib/lib.c
 javac -d ./bin/ src/*.java
-java -Djava.library.path=. -cp ./bin/ Main
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libpq.so java -Djava.library.path=. -cp ./bin/ Main 
+# rm libant.so
