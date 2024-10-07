@@ -18,10 +18,18 @@ JNIEXPORT jobject JNICALL Java_Ant_conn
 /*
  * Class:     Ant
  * Method:    query
- * Signature: (Ljava/lang/String;)V
+ * Signature: (Ljava/lang/String;)Ljava/util/List;
  */
-JNIEXPORT void JNICALL Java_Ant_query
+JNIEXPORT jobject JNICALL Java_Ant_query
   (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     Ant
+ * Method:    disconnect
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_Ant_disconnect
+  (JNIEnv *, jobject);
 
 #ifdef __cplusplus
 }
