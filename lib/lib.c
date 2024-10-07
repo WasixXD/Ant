@@ -102,6 +102,7 @@ release_strings:
 }
 
 JNIEXPORT jobject JNICALL Java_Ant_query(JNIEnv *env, jobject obj, jstring query) {
+
     jlong key = get_key(env, obj);
 
     PGconn *connection = get_conn_pointer(key);
@@ -112,7 +113,8 @@ JNIEXPORT jobject JNICALL Java_Ant_query(JNIEnv *env, jobject obj, jstring query
 
     const char *query_str = (*env)->GetStringUTFChars(env, query, 0);
     PGresult *result = PQexec(connection, query_str);
-    if(PQresultStatus(result) != PGRES_TUPLES_OK) {
+    char *r = PQresStatus(PQresultStatus(result));
+    if(PQresultStatus(result) != PGRES_TUPLES_OK && PQresultStatus(result) != PGRES_COMMAND_OK) {
         printf("Error while querying the database: %s\n", PQresultErrorMessage(result));
         return NULL;
     }
