@@ -57,7 +57,7 @@ jlong get_key(JNIEnv *env, jobject obj) {
 JNIEXPORT jobject JNICALL Java_Ant_conn(JNIEnv *env, jobject obj, jstring host, jstring user, jstring pass, jstring port, jstring dbname) {
     srand(time(NULL));
     // ten(?)
-    init_global_map(10);
+    init_global_map(20);
 
     const char *host_str   = (*env)->GetStringUTFChars(env, host, 0);
     const char *user_str   = (*env)->GetStringUTFChars(env, user, 0);

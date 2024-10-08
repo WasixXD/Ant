@@ -5,26 +5,31 @@ import java.util.concurrent.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.lang.*;
 
 public class Main {
     private final static int n_threads = Runtime.getRuntime().availableProcessors();
-    private ArrayBlockingQueue<ArrayList<String>> queue = new ArrayBlockingQueue<ArrayList<String>>(n_threads);
+    private ArrayBlockingQueue<ArrayList<String>> queue = new ArrayBlockingQueue<ArrayList<String>>(1000);
     private int lines_count = 0;
     private final int BATCH_SIZE = 50000;
     private ArrayList<String> lines;
     public static void main(String[] args) {
         Ant conn = new Ant().conn("localhost", "postgres", "postgres", "5432", "ant");
-        String path_to_file = "./csv10mb.csv";
+        String path_to_file = "./csv1gb.csv";
         long startTime = System.nanoTime();
         Main main = new Main();
-        main.concurrencyImpl(conn, path_to_file);
+        // main.concurrencyImpl(conn, path_to_file);
+        // main.naiveImplementation(conn, path_to_file);
+        main.cBatchImpl(conn, path_to_file);
         long endTime = System.nanoTime();
         long duration = (endTime - startTime);
         System.out.println("[x] Finished in " + duration);
     }
 
-    // 9m
-    public static void naiveImplementation(Ant connection, String path) {
+    // 209712 linhas => 9 minutos - 388 linhas/s
+    // 20971521 linhas => nem tenta
+    public void naiveImplementation(Ant connection, String path) {
+        System.out.println("Starting naive impl");
         String line;
         int i = 0;
 
@@ -43,18 +48,20 @@ public class Main {
         }
     }
 
-    // 3m
+    // 209712 linhas => 4 minutos - 873 linhas/s
+    // 20971521 linhas => trava em 1.200.000 
     public void concurrencyImpl(Ant connection, String path) {
 
+        System.out.println("Starting concurrency impl");
+        String line;
         ArrayList<Thread> threads = new ArrayList<Thread>(n_threads);
 
         for(int i = 0; i < n_threads; i++) {
-            Thread job = new Thread(() -> job());
+            Thread job = new Thread(() -> job1());
             job.start();
             threads.add(job);
         }
 
-        String line;
         this.lines = new ArrayList<String>();
         try(BufferedReader br = new BufferedReader(new FileReader(path))) {
             line = br.readLine(); // read first line
@@ -74,23 +81,22 @@ public class Main {
 
             ArrayList<String> poison = new ArrayList<String>();
             poison.add("POISON");
+
             for(int i = 0; i < n_threads; i++) {
                 this.queue.offer(poison);
             }
-        } catch(IOException e) {
-            e.printStackTrace();
-        }
-        
-        try {
+
             for(Thread t : threads) {
                 t.join();
             }
-        } catch(InterruptedException e) {
+        } catch(IOException | InterruptedException e) {
             e.printStackTrace();
         }
+        
     }
-
-    private void job() {
+    
+    
+    private void job1() {
         Ant connection = new Ant().conn("localhost", "postgres", "postgres", "5432", "ant");
         try {
             while(true) {
@@ -107,6 +113,74 @@ public class Main {
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
-        System.gc();
+    }
+
+    // 209712 linhas => 0,4 segundos - 491376 linhas/s
+    // 20971521 linhas => 24 segundos - 8631 linhas/s
+    public void cBatchImpl(Ant connection, String path) {
+
+        System.out.println("Starting Concurrency + Batch + String Builder impl");
+        String line;
+        ArrayList<Thread> threads = new ArrayList<Thread>(n_threads);
+
+        for(int i = 0; i < n_threads; i++) {
+            Thread job = new Thread(() -> job2());
+            job.start();
+            threads.add(job);
+        }
+
+        this.lines = new ArrayList<String>();
+        try(BufferedReader br = new BufferedReader(new FileReader(path))) {
+            line = br.readLine(); // read first line
+            while((line = br.readLine()) != null) {
+                this.lines_count++;
+                this.lines.add(line);
+
+                if(this.lines_count % this.BATCH_SIZE == 0) {
+                    this.queue.offer(this.lines);
+                    this.lines = new ArrayList<String>();
+                }
+            }
+
+            if(!this.lines.isEmpty()) {
+                this.queue.offer(this.lines);
+            }
+
+            ArrayList<String> poison = new ArrayList<String>();
+            poison.add("POISON");
+
+            for(int i = 0; i < n_threads; i++) {
+                this.queue.offer(poison);
+            }
+
+            for(Thread t : threads) {
+                t.join();
+            }
+        } catch(IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+    }
+
+    private void job2() {
+        Ant connection = new Ant().conn("localhost", "postgres", "postgres", "5432", "ant");
+        try {
+            while(true) {
+                ArrayList<String> lines = this.queue.take();
+                if(lines.size() == 1 && lines.get(0).equals("POISON")) {
+                    break;
+                }
+                StringBuilder sb = new StringBuilder();
+                sb.append("INSERT INTO users VALUES ");
+                for(String line : lines) {
+                    String[] split = line.split(";");
+                    sb.append("('"+ split[0] + "','" + split[1] +"'," + split[2]  +"),");
+                }
+                sb.setCharAt(sb.length() - 1, ';');
+                connection.query(sb.toString());
+            }
+        } catch(InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
