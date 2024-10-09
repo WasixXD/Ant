@@ -15,10 +15,10 @@ import java.util.StringTokenizer;
 public class Main {
     private final static int n_threads = Runtime.getRuntime().availableProcessors();
     private ArrayBlockingQueue<ArrayList<String>> queue = new ArrayBlockingQueue<ArrayList<String>>(1000);
-    // private ConcurrentLinkedQueue<ArrayList<String>> queue2 = new ConcurrentLinkedQueue<ArrayList<String>>();
+    private ConcurrentLinkedQueue<ArrayList<String>> queue2 = new ConcurrentLinkedQueue<ArrayList<String>>();
     private int lines_count = 0;
-    private final int BATCH_SIZE = 100_000;
-    private ArrayList<String> lines;
+    private final int BATCH_SIZE = 20_000;
+    private ArrayList<String> lines = new ArrayList<String>();
     public static void main(String[] args) {
         Ant conn = new Ant().conn("localhost", "postgres", "postgres", "5432", "ant");
         String path_to_file = "./csv1gb.csv";
@@ -27,10 +27,11 @@ public class Main {
         // main.concurrencyImpl(conn, path_to_file);
         // main.naiveImplementation(conn, path_to_file);
         // main.cBatchImpl(conn, path_to_file);
-        main.threadPoolImpl(conn, path_to_file);
+        // main.threadPoolImpl(conn, path_to_file);
+        main.lastOne(conn, path_to_file);
         long endTime = System.nanoTime();
         long duration = (endTime - startTime);
-        System.out.println("[x] Finished in " + duration);
+        System.out.println("[x] Finished in " + duration / 1e+9);
     }
 
     // 209712 linhas => 9 minutos - 388 linhas/s
@@ -190,9 +191,7 @@ public class Main {
             e.printStackTrace();
         }
     }
-    
-    // 209712 linhas => 0,2 segundos 
-    // 20971521 linhas => 22 segundos 
+
     public void threadPoolImpl(Ant connection, String path) {
         System.out.println("Starting threadPool impl");
         String line;
@@ -254,7 +253,71 @@ public class Main {
             e.printStackTrace();
         }
     }
-
     
+    // 209712 linhas => 0,2 segundos 
+    // 20971521 linhas => 21-20 segundos 
+    public void lastOne(Ant connection, String path) {
+        System.out.println("Starting threadPool impl");
+
+        ThreadPoolExecutor threads = (ThreadPoolExecutor)Executors.newFixedThreadPool(n_threads); 
+
+        for(int i = 0; i < n_threads; i++) {
+           threads.execute(() -> job4()); 
+        }
+
+
+        File f = new File(path);
+        try(Stream<String> lineStream = Files.lines(f.toPath())) {
+            lineStream.skip(1).forEach(line -> {
+                this.lines_count++;
+                this.lines.add(line);
+
+                if(this.lines_count % this.BATCH_SIZE == 0) {
+                    this.queue2.add(new ArrayList<String>(this.lines));
+                    this.lines.clear();
+                }
+            });
+
+            this.queue2.add(this.lines);
+
+            ArrayList<String> poison = new ArrayList<String>();
+            poison.add("POISON");
+
+            for(int i = 0; i < n_threads; i++) {
+                this.queue2.add(poison);
+            }
+
+            threads.shutdown();
+            while(!threads.isTerminated()) {}
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
+        
+    }
+
+    private void job4() {
+        Ant connection = new Ant().conn("localhost", "postgres", "postgres", "5432", "ant");
+
+        ArrayList<String> lines;
+        while(true) {
+            lines = this.queue2.poll();
+            if(lines == null) continue;
+            if("POISON".equals(lines.get(0))) {
+                break;
+            }
+            StringBuilder sb = new StringBuilder("INSERT INTO users VALUES ");
+            
+            lines.stream().forEach(
+                line -> {
+                    StringTokenizer split = new StringTokenizer(line, ";");
+                    sb.append("('").append(split.nextToken()).append("','")
+                        .append(split.nextToken()).append("',")
+                        .append(split.nextToken()).append("),");
+                }
+            );
+            sb.setCharAt(sb.length() - 1, ';');
+            connection.query(sb.toString());
+        }
+    }
 
 }
