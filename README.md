@@ -4,7 +4,7 @@
 
 # Brief 📖
 
-This project i made because i didn't want to install packages to connect java to postgresql, in the end it became more of a proof of concept so i could parse millions rows of a csv
+This project was made because i didn't want to install packages to connect java to postgresql, in the end it became more of a proof of concept so i could parse millions rows of a csv
 
 # Challenges 🐢
 - Using JNI <br>
@@ -17,7 +17,14 @@ This project i made because i didn't want to install packages to connect java to
 - [ x ] 20 million lines in 20 seconds with the lib <br>
 
 
-# How it works? 💼
+# Performance ⚡️
 
-I made about 5 implementation that make something different, the last one use multithreading, concurrent queues and streams to get most of it.
+The code for the csv are in the `dados.py` file.
+All the tests were made in a i5-11400 with 12 threads.
 
+| Implementations  | 209712 lines | 20971521 lines |
+|----------|----------|----------|
+| Naive  | 9 minutes   | Not Tested   |
+| Concurrency | 4 minutes   | Locked on 1.200.000 lines   |
+| Batch + StringBuilder   | 0,4 seconds   | 24 seconds  |
+| All the above + Threadpool   | 0,2 seconds   | 22-20 seconds  |
